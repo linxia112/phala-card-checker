@@ -1,0 +1,8 @@
+version: '3.8'
+services:
+  app:
+    # ↓↓↓ 把这里的 your-dockerhub-username 改成你自己的！ ↓↓↓
+    image: linxia112/phala-card-checker:latest
+    # ↑↑↑ 把这里的 your-dockerhub-username 改成你自己的！ ↑↑↑
+    ports:
+      - "8000:8000"
