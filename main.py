@@ -1,5 +1,6 @@
 from typing import List
-from fastapi import FastAPI
+# UploadFile 和 File 是实现文件上传的关键
+from fastapi import FastAPI, Form, File, UploadFile
 from pydantic import BaseModel, Field
 
 # 导入我们两个核心逻辑模块
@@ -8,21 +9,11 @@ import data_parser
 
 app = FastAPI(
     title="Card Checker API",
-    description="Processes card info. Supports single, pre-formatted batch, and raw text endpoints.",
-    version="3.1.0-full-suite" # 再次升级版本号
+    description="Processes card info. Now supports direct file upload!",
+    version="5.0.0-fileupload" # 终极版！
 )
 
-# --- 数据输入/输出模型定义 ---
-
-class SingleCardInput(BaseModel):
-    card_data: str
-
-class BatchCardInput(BaseModel):
-    card_data: List[str]
-
-class RawTextInput(BaseModel):
-    raw_text: str = Field(..., example="5536...|...| Name | Address...\n4111...|...| Name | Address...")
-
+# --- 数据输出模型定义 ---
 class ProcessResponse(BaseModel):
     card: str
     status: str
@@ -35,42 +26,51 @@ def read_root():
     return {"status": "ok", "message": "API is running"}
 
 # --------------------------------------------------------------------
-# 【【【 这 是 您 要 的 新 功 能 】】】
-@app.post("/extract-only", response_model=List[str], summary="【新增功能】只提取格式，不处理支付")
-def extract_format_only(input_data: RawTextInput):
+# 【【【 这 是 您 要 的 最 终 功 能 】】】
+@app.post("/upload-and-process-file", response_model=List[ProcessResponse], summary="【推荐】直接上传 .txt 文件并处理")
+async def upload_and_process_file(
+    # 我们告诉 API，这里要接收一个文件
+    file: UploadFile = File(...)
+):
     """
-    接收一大段原始文本，仅返回提取和格式化后的标准卡片字符串列表。
+    直接上传一个 .txt 文件，服务器会自动读取内容，提取格式，并批量处理。
     """
-    # 直接调用“打包服务”，并立刻返回打包好的结果
-    cleaned_cards = data_parser.parse_raw_text(input_data.raw_text)
-    return cleaned_cards
-# --------------------------------------------------------------------
+    # 第一步：从上传的文件中读取内容。
+    # file.read() 读取的是字节(bytes)，需要用 .decode() 转换成我们能看懂的文本(string)。
+    try:
+        raw_text = (await file.read()).decode("utf-8")
+    except Exception:
+        # 如果文件不是UTF-8编码，可能会解码失败，我们返回一个错误提示
+        return [{"card": "File Error", "status": "Error", "message": "Could not decode file. Please ensure it is a UTF-8 encoded text file."}]
 
-@app.post("/extract-and-process", response_model=List[ProcessResponse], summary="【推荐】处理原始文本 (一步完成提取+处理)")
-def extract_and_process_batch(input_data: RawTextInput):
-    """
-    接收一大段原始文本，先提取格式，然后批量处理。
-    """
-    cleaned_cards = data_parser.parse_raw_text(input_data.raw_text)
+    # 第二步：调用“打包服务”，从文本中提取出标准格式的卡片列表
+    cleaned_cards = data_parser.parse_raw_text(raw_text)
 
     if not cleaned_cards:
         return []
 
+    # 第三步：循环处理所有被成功提取的卡片
     results = []
     for card in cleaned_cards:
         results.append(card_processor.process_card(card))
 
+    # 第四步：返回包含所有结果的清单
     return results
+# --------------------------------------------------------------------
 
-@app.post("/process-batch", response_model=List[ProcessResponse], summary="【旧】处理已格式化的卡片列表")
-def process_batch(card_input: BatchCardInput):
+# --- 以下是旧的接口，我们依然保留，为您提供多种选择 ---
+
+@app.post("/extract-and-process", response_model=List[ProcessResponse], summary="处理原始文本 (表单输入)")
+def extract_and_process_batch(raw_text: str = Form(...)):
+    cleaned_cards = data_parser.parse_raw_text(raw_text)
+    if not cleaned_cards:
+        return []
     results = []
-    for card in card_input.card_data:
+    for card in cleaned_cards:
         results.append(card_processor.process_card(card))
     return results
 
-@app.post("/process-single-card", response_model=List[ProcessResponse], summary="【旧】处理单张已格式化的卡片")
-def process_single(card_input: SingleCardInput):
-    # 为了保持返回格式统一，我们让它也返回一个列表，即使只有一个元素
-    result = card_processor.process_card(card_input.card_data)
-    return [result]
+@app.post("/extract-only", response_model=List[str], summary="仅从原始文本提取标准格式 (表单输入)")
+def extract_format_only(raw_text: str = Form(...)):
+    cleaned_cards = data_parser.parse_raw_text(raw_text)
+    return cleaned_cards
