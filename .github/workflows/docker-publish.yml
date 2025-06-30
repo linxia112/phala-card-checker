@@ -24,6 +24,6 @@ jobs:
         push: true
         # ！！！！！！！！！！！！！！！！！！！！！！
         # ↓↓↓ 把这里的 your-dockerhub-username 改成你自己的！ ↓↓↓
-        tags: your-dockerhub-username/phala-card-checker:linxia112
+        tags: linxia112/phala-card-checker:latest
         # ↑↑↑ 把这里的 your-dockerhub-username 改成你自己的！ ↑↑↑
         # ！！！！！！！！！！！！！！！！！！！！！！
