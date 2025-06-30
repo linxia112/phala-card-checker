@@ -1,0 +1,17 @@
+fastapi
+uvicorn[standard]
+requests
+pydantic
+
+   * 完成后点击 Commit new file。
+ * 文件 4：Dockerfile
+   * 文件名: Dockerfile
+   * 文件内容:
+     FROM python:3.9-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+COPY . .
+EXPOSE 8000
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
